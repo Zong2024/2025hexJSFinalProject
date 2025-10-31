@@ -113,9 +113,9 @@ function renderCarts(cartsData) {
   const reg = /\B(?=(\d{3})+(?!\d))/g;
   cartsData.forEach((item) => {
     const product = item.product;
-    total += product.price;
+    total += product.price * item.quantity;
     const originPrice = String(product.origin_price).replace(reg, ",");
-    const price = String(product.price).replace(reg, ",");
+    const price = String(product.price * item.quantity).replace(reg, ",");
     str += `<tr  data-id='${item.id}'>
                         <td>
                             <div class="cardItem-title">
@@ -175,7 +175,7 @@ shoppingCartTableBody.addEventListener("click", (e) => {
 // 編輯商品數量
 async function patchQuantity(data) {
   try {
-    const res = await axios.patch(`${customerApi}/carts/`, data);
+    const res = await axios.patch(`${customerApi}/carts`, data);
     cartsData = res.data.carts;
     renderCarts(cartsData);
   } catch (error) {
@@ -192,8 +192,11 @@ shoppingCartTableBody.addEventListener("click", (e) => {
     const id = tr ? tr.dataset.id : null;
     if (id) {
       cartsData.forEach((item) => {
-        item.quantity = 0;
+        if (item.id === id) {
+          item.quantity = 0;
+        }
       });
+
       deleteCarts(id);
     }
   }
@@ -233,6 +236,96 @@ async function deleteAllCarts() {
     console.log(`錯誤訊息:${error}`);
   }
 }
+
+// 取得訂單元素
+const customerName = document.querySelector("#customerName");
+const customerPhone = document.querySelector("#customerPhone");
+const customerEmail = document.querySelector("#customerEmail");
+const customerAddress = document.querySelector("#customerAddress");
+const tradeWay = document.querySelector("#tradeWay");
+const orderInfoBtn = document.querySelector(".orderInfo-btn");
+const orderInfoForm = document.querySelector(".orderInfo-form");
+
+// 驗證規則
+function checkForm() {
+  const constraints = {
+    姓名: {
+      presence: { message: "姓名為必填欄位" },
+      length: {
+        minimum: 2,
+        message: "姓名至少需兩個字",
+      },
+    },
+    電話: {
+      presence: { message: "電話為必填欄位" },
+      format: {
+        pattern: /^[0-9\-+() ]{8,15}$/,
+        message: "請輸入有效的電話格式",
+      },
+    },
+    Email: {
+      presence: { message: "Email 為必填欄位" },
+      email: { message: "請輸入有效的 Email 格式" },
+    },
+    寄送地址: {
+      presence: { message: "地址為必填欄位" },
+    },
+  };
+  const errors = validate(orderInfoForm, constraints);
+  if (errors) {
+    let message = "";
+    Object.values(errors).forEach((arr) => {
+      arr.forEach((msg) => {
+        message += msg + "\n";
+      });
+    });
+    alert(message);
+    return true;
+  }
+}
+
+function addOrder() {
+  if (!cartsData.length) {
+    alert("購物車內無任何商品，請先加入商品再進行結帳");
+    return;
+  }
+  if (checkForm()) return;
+  const data = {
+    data: {
+      user: {
+        name: customerName.value.trim(),
+        tel: customerPhone.value.trim(),
+        email: customerEmail.value.trim(),
+        address: customerAddress.value.trim(),
+        payment: tradeWay.value,
+      },
+    },
+  };
+  postOrders(data);
+}
+
+orderInfoBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  addOrder();
+});
+
+async function postOrders(data) {
+  try {
+    const res = await axios.post(`${customerApi}/orders`, data);
+    orderInfoForm.reset();
+    window.location.reload();
+  } catch (error) {
+    if (error.response) {
+      console.log(
+        `錯誤碼: ${error.response.status}, 訊息:`,
+        error.response.data
+      );
+    } else {
+      console.log(`錯誤訊息: ${error.message}`);
+    }
+  }
+}
+
 // 初始化
 function init() {
   getProductData();
