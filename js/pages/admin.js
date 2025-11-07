@@ -47,6 +47,7 @@ async function getOrdersData() {
     ordersData = res.data.orders;
     renderOrders();
     calcProductsCategory();
+    calcProductsTitle();
   } catch (error) {
     console.log(`錯誤: ${error}`);
   }
@@ -99,7 +100,27 @@ function calcProductsCategory() {
       result[product.category] = result[product.category] + total || total;
     });
   });
-  renderChart(Object.entries(result));
+  // renderChart(Object.entries(result));
+}
+
+function calcProductsTitle() {
+  let result = {};
+  ordersData.forEach((item) => {
+    item.products.forEach((product) => {
+      let total = product.price * product.quantity;
+      result[product.title] = result[product.title] + total || total;
+    });
+  });
+  const sortResult = Object.entries(result).sort((a, b) => b[1] - a[1]);
+  if (sortResult.length <= 3) {
+    return renderChart(sortResult);
+  }
+  const newResult = sortResult.slice(0, 3);
+  const othersTotal = sortResult.slice(3).reduce((acc, item) => {
+    return acc + item[1];
+  }, 0);
+  newResult.push(["其他", othersTotal]);
+  renderChart(newResult);
 }
 
 function init() {
