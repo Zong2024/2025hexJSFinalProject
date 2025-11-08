@@ -21,11 +21,11 @@ function renderProduct(productData) {
   productData.forEach((item) => {
     const originPrice = String(item.origin_price).replace(reg, ",");
     const price = String(item.price).replace(reg, ",");
-    str += `            <li class="productCard">
+    str += `            <li class="productCard" data-id='${item.id}'>
                 <h4 class="productType">新品</h4>
                 <img src="${item.images}"
                     alt="">
-                <a href="#" class="addCardBtn" data-id='${item.id}'>加入購物車</a>
+                <a href="#" class="addCardBtn">加入購物車</a>
                 <h3>${item.title}</h3>
                 <del class="originPrice">NT$${originPrice}</del>
                 <p class="nowPrice">NT$${price}</p>
@@ -67,18 +67,19 @@ async function getCartData() {
     console.log(`錯誤訊息:${error}`);
   }
 }
-
 // 加入購物車
 function handleAddToCart(e) {
   e.preventDefault();
-  const btn = e.target.hasAttribute("data-id");
-  if (btn) {
-    const productId = e.target.dataset.id;
-    const cart = cartsData.find((item) => item.product.id === productId);
+  const addBtn = e.target.classList.contains("addCardBtn");
+  const id = e.target.closest(".productCard").dataset.id;
+  if (addBtn) {
+    const cart = cartsData.find((item) => {
+      return item.product.id === id;
+    });
     const quantity = cart ? cart.quantity + 1 : 1;
     const data = {
       data: {
-        productId,
+        productId: id,
         quantity,
       },
     };
@@ -191,12 +192,6 @@ shoppingCartTableBody.addEventListener("click", (e) => {
     const tr = btn.closest("tr");
     const id = tr ? tr.dataset.id : null;
     if (id) {
-      cartsData.forEach((item) => {
-        if (item.id === id) {
-          item.quantity = 0;
-        }
-      });
-
       deleteCarts(id);
     }
   }
@@ -206,8 +201,8 @@ shoppingCartTableBody.addEventListener("click", (e) => {
 async function deleteCarts(id) {
   try {
     const res = await axios.delete(`${customerApi}/carts/${id}`);
-    const carts = res.data.carts;
-    renderCarts(carts);
+    cartsData = res.data.carts;
+    renderCarts(cartsData);
   } catch (error) {
     console.log(`錯誤訊息:${error}`);
   }
@@ -230,8 +225,8 @@ shoppingCartTableFoot.addEventListener("click", (e) => {
 async function deleteAllCarts() {
   try {
     const res = await axios.delete(`${customerApi}/carts`);
-    const carts = res.data.carts;
-    renderCarts(carts);
+    cartsData = res.data.carts;
+    renderCarts(cartsData);
   } catch (error) {
     console.log(`錯誤訊息:${error}`);
   }
@@ -271,7 +266,13 @@ function checkForm() {
       presence: { message: "地址為必填欄位" },
     },
   };
-  const errors = validate(orderInfoForm, constraints);
+  const formData = {
+    姓名: customerName.value.trim(),
+    電話: customerPhone.value.trim(),
+    Email: customerEmail.value.trim(),
+    寄送地址: customerAddress.value.trim(),
+  };
+  const errors = validate(formData, constraints);
   if (errors) {
     let message = "";
     Object.values(errors).forEach((arr) => {
@@ -282,14 +283,15 @@ function checkForm() {
     alert(message);
     return true;
   }
+  return false;
 }
-
 function addOrder() {
   if (!cartsData.length) {
     alert("購物車內無任何商品，請先加入商品再進行結帳");
     return;
   }
   if (checkForm()) return;
+
   const data = {
     data: {
       user: {
@@ -315,14 +317,7 @@ async function postOrders(data) {
     orderInfoForm.reset();
     window.location.reload();
   } catch (error) {
-    if (error.response) {
-      console.log(
-        `錯誤碼: ${error.response.status}, 訊息:`,
-        error.response.data
-      );
-    } else {
-      console.log(`錯誤訊息: ${error.message}`);
-    }
+    console.log("🚀 ~ error:", error);
   }
 }
 
